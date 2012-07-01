@@ -66,6 +66,10 @@
   #include "core/gpio/gpio.h"
 #endif
 
+#ifdef CFG_JTAG
+  #include "drivers/jtag/jtag.h"
+#endif
+
 /**************************************************************************/
 /*! 
     'sysinfo' command handler
@@ -172,5 +176,19 @@ void cmd_sysinfo(uint8_t argc, char **argv)
   // Debug LED
   #if CFG_INTERFACE_LONGSYSINFO
     printf("%-25s : %d.%d %s", "LED Location", CFG_LED_PORT, CFG_LED_PIN, CFG_PRINTF_NEWLINE);
+  #endif
+
+  // JTAG
+  #if CFG_INTERFACE_LONGSYSINFO
+    #ifdef CFG_JTAG
+      uint8_t jtagport, jtagportCount, jtagdevCount;
+      jtagportCount = jtagDetectPorts();
+      printf("%d JTAG port%s:%s", jtagportCount, jtagportCount==1?"":"s", CFG_PRINTF_NEWLINE);
+      for (jtagport = 0; jtagport < jtagportCount; ++jtagport)
+      {
+        jtagdevCount = jtagDetect(jtagport);
+        printf("  %d device%s%s", jtagdevCount, jtagdevCount==1?"":"s", CFG_PRINTF_NEWLINE);
+      }
+    #endif
   #endif
 }

@@ -116,6 +116,10 @@
   }
 #endif
 
+#ifdef CFG_JTAG
+  #include "drivers/jtag/jtag.h"
+#endif
+
 /**************************************************************************/
 /*! 
     Configures the core system clock and sets up any mandatory
@@ -237,6 +241,10 @@ void systemInit()
     chb_init();
     // chb_pcb_t *pcb = chb_get_pcb();
     // printf("%-40s : 0x%04X%s", "Chibi Initialised", pcb->src_addr, CFG_PRINTF_NEWLINE);
+  #endif
+
+  #ifdef CFG_JTAG
+    jtagInit();
   #endif
 
   // Start the command line interface
