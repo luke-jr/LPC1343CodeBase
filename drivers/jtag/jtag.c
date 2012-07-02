@@ -107,7 +107,8 @@ void jtagReset(uint8_t jtagPort)
   jtagClock(jtagPort, 0, 0);
 }
 
-uint8_t jtagDetect(uint8_t jtagPort)
+// Returns -1 for failure, -2 for unknown, or zero and higher for number of devices
+int8_t jtagDetect(uint8_t jtagPort)
 {
   // TODO: detect more than 1 device
   uint8_t i;
@@ -117,11 +118,13 @@ uint8_t jtagDetect(uint8_t jtagPort)
   jtagClock(jtagPort, 0, 0);  // Shift DR
   for (i=0; i<4; ++i)
     jtagClock(jtagPort, 0, 0);
+  if (jtagClock(jtagPort, 0, 0))
+    return -1;
   for (i=0; i<4; ++i)
     if (jtagClock(jtagPort, 1, 0))
       break;
   jtagReset(jtagPort);
-  return i == 1;
+  return i < 2 ? i : -2;
 }
 
 void jtagDR(uint8_t jtagPort, const uint8_t data[], uint32_t bitlength)
