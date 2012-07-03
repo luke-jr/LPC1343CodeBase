@@ -310,4 +310,7 @@ ifeq (${CFG_JTAG},1)
 	DEFS += -DCFG_JTAG -DCFG_JTAG_PORTS='${CFG_JTAG_PORTS}'
 	VPATH += drivers/jtag
 	OBJS += jtag.o
+	ifeq (${CFG_INTERFACE},1)
+		OBJS += cmd_jtag.o
+	endif
 endif
