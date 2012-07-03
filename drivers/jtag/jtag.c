@@ -59,8 +59,19 @@ uint8_t jtagClock(uint8_t jtagPort, uint8_t tdo, uint8_t tms)
   return gpioGetValue(pi->tdo[0], pi->tdo[1]);
 }
 
+static void _jtagRWBit(uint8_t jtagPort, uint8_t*byte, uint8_t mask, uint8_t tms, uint8_t read)
+{
+  uint8_t rv = jtagClock(jtagPort, read ? 0 : (byte[0] & mask), tms);
+  if (!read)
+    return;
+  if (rv)
+    byte[0] |= mask;
+  else
+    byte[0] &= ~mask;
+}
+
 // Expects to start at the Capture step, to handle 0-length gracefully
-void jtagWrite(uint8_t jtagPort, const uint8_t data[], uint32_t bitlength)
+static void _jtagLLReadWrite(uint8_t jtagPort, uint8_t data[], uint32_t bitlength, uint8_t read)
 {
   uint8_t i, j;
   div_t d;
@@ -80,23 +91,18 @@ void jtagWrite(uint8_t jtagPort, const uint8_t data[], uint32_t bitlength)
   
   for (i=0; i<d.quot; ++i)
   {
-    j = data[i];
-    jtagClock(jtagPort, j & 0x80, 0);
-    jtagClock(jtagPort, j & 0x40, 0);
-    jtagClock(jtagPort, j & 0x20, 0);
-    jtagClock(jtagPort, j & 0x10, 0);
-    jtagClock(jtagPort, j & 0x08, 0);
-    jtagClock(jtagPort, j & 0x04, 0);
-    jtagClock(jtagPort, j & 0x02, 0);
-    jtagClock(jtagPort, j & 0x01, 0);
+    _jtagRWBit(jtagPort, &data[i], 0x80, 0, read);
+    _jtagRWBit(jtagPort, &data[i], 0x40, 0, read);
+    _jtagRWBit(jtagPort, &data[i], 0x20, 0, read);
+    _jtagRWBit(jtagPort, &data[i], 0x10, 0, read);
+    _jtagRWBit(jtagPort, &data[i], 0x08, 0, read);
+    _jtagRWBit(jtagPort, &data[i], 0x04, 0, read);
+    _jtagRWBit(jtagPort, &data[i], 0x02, 0, read);
+    _jtagRWBit(jtagPort, &data[i], 0x01, 0, read);
   }
-  j = data[i];
-  for (i=0; i<d.rem; ++i)
-  {
-    jtagClock(jtagPort, j & 0x80, 0);
-    j <<= 1;
-  }
-  jtagClock(jtagPort, j & 0x80, 1);
+  for (j=0; j<d.rem; ++j)
+    _jtagRWBit(jtagPort, &data[i], 0x80>>j, 0, read);
+  _jtagRWBit(jtagPort, &data[i], 0x80>>j, 1, read);
 }
 
 void jtagReset(uint8_t jtagPort)
@@ -112,7 +118,7 @@ int8_t jtagDetect(uint8_t jtagPort)
 {
   // TODO: detect more than 1 device
   uint8_t i;
-  jtagIR(jtagPort, (const uint8_t*)"\xff", 8);
+  jtagWrite(jtagPort, JTAG_REG_IR, (uint8_t*)"\xff", 8);
   jtagClock(jtagPort, 0, 1);  // Select DR
   jtagClock(jtagPort, 0, 0);  // Capture DR
   jtagClock(jtagPort, 0, 0);  // Shift DR
@@ -127,18 +133,24 @@ int8_t jtagDetect(uint8_t jtagPort)
   return i < 2 ? i : -2;
 }
 
-void jtagDR(uint8_t jtagPort, const uint8_t data[], uint32_t bitlength)
+static void _jtagReadWrite(uint8_t jtagPort, enum jtagreg r, uint8_t data[], uint32_t bitlength, uint8_t read)
 {
   jtagClock(jtagPort, 0, 1);  // Select DR
-  jtagClock(jtagPort, 0, 0);  // Capture DR
-  jtagWrite(jtagPort, data, bitlength);  // Exit1 DR
-  jtagClock(jtagPort, 0, 1);  // Update DR
+  if (r == JTAG_REG_IR)
+    jtagClock(jtagPort, 0, 1);  // Select IR
+  jtagClock(jtagPort, 0, 0);  // Capture
+  _jtagLLReadWrite(jtagPort, data, bitlength, read);  // Exit1
+  jtagClock(jtagPort, 0, 1);  // Update
 }
 
-void jtagIR(uint8_t jtagPort, const uint8_t data[], uint32_t bitlength)
+void jtagRead(uint8_t jtagPort, enum jtagreg r, uint8_t data[], uint32_t bitlength)
 {
-  jtagClock(jtagPort, 0, 1);
-  jtagDR(jtagPort, data, bitlength);
+  _jtagReadWrite(jtagPort, r, data, bitlength, 1);
+}
+
+void jtagWrite(uint8_t jtagPort, enum jtagreg r, const uint8_t data[], uint32_t bitlength)
+{
+  _jtagReadWrite(jtagPort, r, (uint8_t*)data, bitlength, 0);
 }
 
 void jtagRun(uint8_t jtagPort)
