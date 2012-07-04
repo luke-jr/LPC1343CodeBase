@@ -288,10 +288,17 @@ tryNewMux:
 			goto muxDone;
 		}
 		case 3:  // Read ID Code
+		{
+			uint8_t idcode[4];
 			if (msglen < 2)
 				break;
-			// FIXME TODO: not used in cgminer
-			break;
+			jtagReset(jtag);
+			jtagRead (jtag, JTAG_REG_DR, idcode, 32);
+			jtagReset(jtag);
+			bitendianflip(idcode, 32);
+			muxWrite(idcode, 4);
+			goto muxDone;
+		}
 		case 4:  // Read USER Code
 		{
 			uint8_t usercode[4];
