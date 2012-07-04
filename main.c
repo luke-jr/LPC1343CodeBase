@@ -232,6 +232,7 @@ static uint8_t msglen;
 
 uint8_t fpgamax;
 uint8_t fpgaidx[5];
+uint8_t bcs[5];
 
 void muxRx(uint8_t c)
 {
@@ -313,25 +314,25 @@ tryNewMux:
 			goto muxDone;
 		}
 		case 6:  // Set Clock Speed
+		{
+			uint8_t rv;
 			if (msglen < 6)
 				break;
-			muxWrite((const uint8_t*)"\1", 1);
+			bcs[jtag] = msg[2]>200;
+			if (bcs[jtag]) msg[2] = 50;
+			fpgaSetRegister(jtag, 0xD, msg[2]);
+			rv = !bcs[jtag];
+			muxWrite(&rv, 1);
 			goto muxDone;
+		}
 		case 7:  // Read Clock Speed
 		{
 			uint8_t buf[4];
-			if (msglen < 3)
+			if (msglen < 2)
 				break;
-			fpgaGetRegisterAsBytes(jtag, msg[2], buf);
+			fpgaGetRegisterAsBytes(jtag, 0xD, buf);
 			bitendianflip(buf, 32);
 			muxWrite(buf, 4);
-			goto muxDone;
-		}
-		case 80:
-		{
-			if (msglen < 7)
-				break;
-			fpgaSetRegisterFromBytes(jtag, msg[2], &msg[3]);
 			goto muxDone;
 		}
 		case 8:  // Send Job
@@ -350,6 +351,8 @@ tryNewMux:
 			if (msglen < 2)
 				break;
 			fpgaGetRegisterAsBytes(jtag, 0xE, buf);
+			if (bcs[jtag])
+				buf[0] = 0;
 			bitendianflip(buf, 32);
 			muxWrite(buf, 4);
 			goto muxDone;
