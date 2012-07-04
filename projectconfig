@@ -118,13 +118,14 @@ SRAM = 8K
 #         LPC1343 LPCXpresso board
 # 
 
-include boards/LPC1343_REFDESIGN
+#include boards/LPC1343_REFDESIGN
 #include boards/LPC1343_REFDESIGN_MINIMAL
 #include boards/LPC1343_TFTLCDSTANDALONE_USB
 #include boards/LPC1343_TFTLCDSTANDALONE_UART
 #include boards/LPC1343_802154USBSTICK
 #include boards/LPC1343_OLIMEX_P
 #include boards/LPC1343_LPCXPRESSO
+include boards/LPC1343_MODMINER
 # =========================================================================
 # 
 # 

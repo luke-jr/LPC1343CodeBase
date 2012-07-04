@@ -1,0 +1,25 @@
+GPIO_ENABLE_IRQ1 = 1
+
+CFG_LED_PORT = 0
+CFG_LED_PIN  = 7
+
+CFG_USB_VID = 1fc9
+CFG_USB_PID = 0003
+CFG_USB_SOFTCONNECT = 0
+CFG_USBCDC = 1
+
+CFG_SSP0_SCKPIN =
+
+CFG_INTERFACE = 1
+CFG_INTERFACE_PROMPT = "MODMINER> "
+CFG_INTERFACE_LONGSYSINFO = 1
+CFG_PRINTF_USBCDC = 1
+CFG_PRINTF_NEWLINE = "\r\n"
+
+CFG_JTAG = 1
+CFG_JTAG_PORTS = {  \
+  {{1, 7}, {3, 3}, {2, 6}, {2, 0}}, \
+  {{1,11}, {3, 2}, {1, 5}, {1, 6}}, \
+  {{2, 2}, {0, 8}, {2, 9}, {2,10}}, \
+  {{2, 5}, {0, 6}, {1, 9}, {2, 4}}, \
+}

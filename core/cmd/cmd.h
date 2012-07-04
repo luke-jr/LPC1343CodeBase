@@ -53,7 +53,7 @@ typedef struct
 } cmd_t;
 
 void cmdPoll();
-void cmdRx(uint8_t c);
+uint8_t cmdRx(uint8_t c);
 void cmdParse(char *cmd);
 void cmdInit();
 

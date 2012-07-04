@@ -115,7 +115,7 @@ void cmdPoll()
                 The character to parse.
 */
 /**************************************************************************/
-void cmdRx(uint8_t c)
+uint8_t cmdRx(uint8_t c)
 {
   // read out the data in the buffer and echo it back to the host. 
   switch (c)
@@ -133,7 +133,7 @@ void cmdRx(uint8_t c)
         #endif
         cmdParse((char *)msg);
         msg_ptr = msg;
-        break;
+        return 1;
     
     case '\b':
         #if CFG_INTERFACE_SILENTMODE == 0
@@ -157,6 +157,7 @@ void cmdRx(uint8_t c)
         *msg_ptr++ = c;
         break;
   }
+  return 0;
 }
 
 /**************************************************************************/
