@@ -32,6 +32,10 @@ This folder is sub-divided into the following categories:
 
 Chan's FATFS, enabling you to read and write to inexpensive SD cards
 
+## jtag
+
+JTAG driver implemented with GPIO
+
 ## motor
 
 Motor-control related drivers

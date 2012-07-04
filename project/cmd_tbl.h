@@ -97,6 +97,13 @@ void cmd_sd_dir(uint8_t argc, char **argv);
 void cmd_pwm(uint8_t argc, char **argv);
 #endif
 
+#ifdef CFG_JTAG
+void cmd_jtagread(uint8_t argc, char **argv);
+void cmd_jtagwrite(uint8_t argc, char **argv);
+void cmd_jtagreset(uint8_t argc, char **argv);
+void cmd_jtagrun(uint8_t argc, char **argv);
+#endif
+
 #define CMD_NOPARAMS "This command has no parameters"
 
 /**************************************************************************/
@@ -160,6 +167,13 @@ cmd_t cmd_tbl[] =
 
   #ifdef CFG_PWM
   { "M",    2,  2,  0,  cmd_pwm              , "PWM Control"                    , "'M [<dutycycle(%)>] [<frequency(ticks)>]'" },
+  #endif
+
+  #ifdef CFG_JTAG
+  { "jr",   3,  3,  0,  cmd_jtagread         , "JTAG Read"                      , "'jr <port> <I|D> <bits>'" },
+  { "jw",   3,  4,  0,  cmd_jtagwrite        , "JTAG Write"                     , "'jw <port> <I|D> <hexdata> [<padbits>]'" },
+  { "ja",   1,  1,  0,  cmd_jtagreset        , "JTAG reset/Abort"               , "'ja <port>'" },
+  { "jc",   1,  1,  0,  cmd_jtagrun          , "JTAG run/Continue"              , "'jc <port>'" },
   #endif
 };
 
