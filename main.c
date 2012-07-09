@@ -230,7 +230,7 @@ static uint32_t elen;
 static uint8_t msg[256];
 static uint8_t msglen;
 
-#define PRODID "ModMiner Quad v0.4"
+#define PRODID "ModMiner Quad v0.4-ljr-alpha"
 
 uint8_t fpgamax;
 uint8_t fpgaidx[5] = {0,0,0,0,0xff};
