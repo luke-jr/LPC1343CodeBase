@@ -224,6 +224,8 @@ static enum {
   MUX_COMPAT,
   MUX_MHBP,
 } muxMode;
+static uint8_t step;
+static uint32_t elen;
 
 static uint8_t msg[256];
 static uint8_t msglen;
@@ -231,7 +233,7 @@ static uint8_t msglen;
 #define PRODID "ModMiner Quad v0.4"
 
 uint8_t fpgamax;
-uint8_t fpgaidx[5];
+uint8_t fpgaidx[5] = {0,0,0,0,0xff};
 uint8_t bcs[5];
 
 void muxRx(uint8_t c)
@@ -240,6 +242,7 @@ void muxRx(uint8_t c)
 	{
 tryNewMux:
 		msglen = 0;
+		step = 0;
 		if (c == 0xfe)
 			muxMode = MUX_MHBP;
 		else
@@ -312,14 +315,62 @@ tryNewMux:
 			goto muxDone;
 		}
 		case 5:  // Program Bitstream
-		{
-			if (msglen < 6)
+			switch (step) {
+			case 0:
+			{
+				uint8_t i;
+				if (msglen < 6)
+					break;
+				step = 1;
+				msglen = 2;
+				elen = msg[2] | ((uint32_t)msg[3] << 8) | ((uint32_t)msg[4] << 16) | ((uint32_t)msg[5] << 24);
+				jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\xd0", 6);  // JPROGRAM
+				do {
+					i = 0xff;  // BYPASS while reading status
+					jtagRead(jtag, JTAG_REG_IR, &i, 6);
+				} while (i & 8);
+				jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\xa0", 6);  // CFG_IN
+				muxWrite((const uint8_t*)"\1", 1);
+				// NOTE: for whatever reason, the FPGAs don't like immediately filling DR after CFG_IN; therefore, don't try to optimize this
 				break;
-			
-			// FIXME TODO
-			
-			goto muxDone;
-		}
+			}
+			case 1:
+			{
+				if (msglen < 34)
+					break;
+				muxWrite((const uint8_t*)"\1", 1);
+				jtagSWrite(jtag, JTAG_REG_DR, &msg[2], 256);
+				step = 2;
+				msglen = 2;
+				elen -= 32;
+				break;
+			}
+			case 2:
+			{
+				uint8_t i;
+				uint8_t needlen = (elen < 32) ? elen : 32;
+				if (msglen < needlen+2)
+					break;
+				muxWrite((const uint8_t*)"\1", 1);
+				elen -= needlen;
+				jtagSWriteMore(jtag, &msg[2], 8*needlen, !elen);
+				if (elen)
+				{
+					msglen = 2;
+					break;
+				}
+				// Last data block
+				jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\x30", 6);  // JSTART
+				for (i=0; i<16; ++i)
+					jtagRun(jtag);
+				i = 0xff;  // BYPASS
+				jtagRead(jtag, JTAG_REG_IR, &i, 6);
+				i = (i & 4) ? 1 : 0;
+				muxWrite(&i, 1);
+				goto muxDone;
+			}
+			}
+			break;
 		case 6:  // Set Clock Speed
 		{
 			uint8_t rv;
