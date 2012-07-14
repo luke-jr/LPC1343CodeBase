@@ -56,7 +56,6 @@
   #include "core/usbcdc/cdc_buf.h"
   #include "core/usbcdc/usb.h"
   #include "core/usbcdc/usbhw.h"
-  static char usbcdcBuf [32];
 #endif
 
 #include "drivers/jtag/jtag.h"
@@ -159,27 +158,9 @@ void muxRx(uint8_t);
 
 void muxPoll()
 {
-  #if defined CFG_PRINTF_UART
-  while (uartRxBufferDataPending())
-  {
-    uint8_t c = uartRxBufferRead();
+  int c;
+  while (EOF != (c = pf_getchar()))
     muxRx(c);
-  }
-  #endif
-
-  #if defined CFG_PRINTF_USBCDC
-    int  numBytesToRead, numBytesRead, numAvailByte;
-  
-    CDC_OutBufAvailChar (&numAvailByte);
-    if (numAvailByte > 0)
-    {
-      numBytesToRead = numAvailByte > 32 ? 32 : numAvailByte;
-      numBytesRead = CDC_RdOutBuf (&usbcdcBuf[0], &numBytesToRead);
-      int i;
-      for (i = 0; i < numBytesRead; i++) 
-        muxRx(usbcdcBuf[i]);
-    }
-  #endif
 }
 
 unsigned int lastTick;
