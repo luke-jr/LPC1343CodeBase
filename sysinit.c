@@ -246,6 +246,42 @@ void systemInit()
 }
 
 /**************************************************************************/
+/*!
+    @brief Reads a single byte to a pre-determined peripheral (UART, etc.).
+*/
+/**************************************************************************/
+int pf_getchar()
+{
+  #if defined CFG_PRINTF_UART
+  if (uartRxBufferDataPending())
+    return uartRxBufferRead();
+  #endif
+
+  #if defined CFG_PRINTF_USBCDC
+    static uint8_t i, numBytesRead;
+    static char usbcdcBuf [32];
+
+    if (i < numBytesRead)
+      return usbcdcBuf[i++];
+
+    int numBytesToRead, numAvailByte;
+    CDC_OutBufAvailChar (&numAvailByte);
+    if (numAvailByte > 0)
+    {
+      numBytesToRead = numAvailByte > 32 ? 32 : numAvailByte;
+      numBytesRead = CDC_RdOutBuf (&usbcdcBuf[0], &numBytesToRead);
+      if (numBytesRead > 0)
+      {
+        i = 1;
+        return usbcdcBuf[0];
+      }
+    }
+  #endif
+
+  return EOF;
+}
+
+/**************************************************************************/
 /*! 
     @brief Sends a single byte to a pre-determined peripheral (UART, etc.).
 

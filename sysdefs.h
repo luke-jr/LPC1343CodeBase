@@ -84,5 +84,7 @@ typedef unsigned char byte_t;
 #define NULL ((void *) 0)
 #endif
 
+extern int pf_getchar();
+
 #endif
 
