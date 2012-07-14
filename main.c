@@ -163,42 +163,6 @@ void muxPoll()
     muxRx(c);
 }
 
-unsigned int lastTick;
-int muxWrite(const uint8_t * str, size_t len)
-{
-  // There must be at least 1ms between USB frames (of up to 64 bytes)
-  // This buffers all data and writes it out from the buffer one frame
-  // and one millisecond at a time
-  #ifdef CFG_PRINTF_USBCDC
-//FIXME    if (USB_Configuration)
-    {
-      size_t p;
-      for (p=0; p<len; ++p)
-        cdcBufferWrite(*str++);
-      // Check if we can flush the buffer now or if we need to wait
-      unsigned int currentTick = systickGetTicks();
-      if (currentTick != lastTick)
-      {
-        uint8_t frame[64];
-        uint32_t bytesRead = 0;
-        while (cdcBufferDataPending())
-        {
-          // Read up to 64 bytes as long as possible
-          bytesRead = cdcBufferReadLen(frame, 64);
-          USB_WriteEP (CDC_DEP_IN, frame, bytesRead);
-          systickDelay(1);
-        }
-        lastTick = currentTick;
-      }
-    }
-  #else
-    // Handle output character by character in __putchar
-    while(*str) __putchar(*str++);
-  #endif
-
-  return 0;
-}
-
 static enum {
   MUX_NONE,
   MUX_CMD,
@@ -250,10 +214,10 @@ tryNewMux:
 		jtag = fpgaidx[msg[1]];
 		switch (msg[0]) {
 		case 0:  // Ping Pong
-			muxWrite((const uint8_t*)"\0", 1);
+			pf_write("\0", 1);
 			goto muxDone;
 		case 1:  // Version
-			muxWrite((const uint8_t*)PRODID, sizeof(PRODID));
+			pf_write(PRODID, sizeof(PRODID));
 			goto muxDone;
 		case 2:  // Get FPGA Count
 		{
@@ -268,7 +232,7 @@ tryNewMux:
 					fpgaidx[jtagdevTotal++] = jtagport;
 			}
 			fpgamax = jtagdevTotal;
-			muxWrite(&jtagdevTotal, 1);
+			pf_write(&jtagdevTotal, 1);
 			goto muxDone;
 		}
 		case 3:  // Read ID Code
@@ -280,7 +244,7 @@ tryNewMux:
 			jtagRead (jtag, JTAG_REG_DR, idcode, 32);
 			jtagReset(jtag);
 			bitendianflip(idcode, 32);
-			muxWrite(idcode, 4);
+			pf_write(idcode, 4);
 			goto muxDone;
 		}
 		case 4:  // Read USER Code
@@ -292,7 +256,7 @@ tryNewMux:
 			jtagRead (jtag, JTAG_REG_DR, usercode, 32);
 			jtagReset(jtag);
 			bitendianflip(usercode, 32);
-			muxWrite(usercode, 4);
+			pf_write(usercode, 4);
 			goto muxDone;
 		}
 		case 5:  // Program Bitstream
@@ -311,7 +275,7 @@ tryNewMux:
 					jtagRead(jtag, JTAG_REG_IR, &i, 6);
 				} while (i & 8);
 				jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\xa0", 6);  // CFG_IN
-				muxWrite((const uint8_t*)"\1", 1);
+				pf_write("\1", 1);
 				// NOTE: for whatever reason, the FPGAs don't like immediately filling DR after CFG_IN; therefore, don't try to optimize this
 				break;
 			}
@@ -319,7 +283,7 @@ tryNewMux:
 			{
 				if (msglen < 34)
 					break;
-				muxWrite((const uint8_t*)"\1", 1);
+				pf_write("\1", 1);
 				jtagSWrite(jtag, JTAG_REG_DR, &msg[2], 256);
 				step = 2;
 				msglen = 2;
@@ -332,7 +296,7 @@ tryNewMux:
 				uint8_t needlen = (elen < 32) ? elen : 32;
 				if (msglen < needlen+2)
 					break;
-				muxWrite((const uint8_t*)"\1", 1);
+				pf_write("\1", 1);
 				elen -= needlen;
 				jtagSWriteMore(jtag, &msg[2], 8*needlen, !elen);
 				if (elen)
@@ -347,7 +311,7 @@ tryNewMux:
 				i = 0xff;  // BYPASS
 				jtagRead(jtag, JTAG_REG_IR, &i, 6);
 				i = (i & 4) ? 1 : 0;
-				muxWrite(&i, 1);
+				pf_write(&i, 1);
 				goto muxDone;
 			}
 			}
@@ -361,7 +325,7 @@ tryNewMux:
 			if (bcs[jtag]) msg[2] = 50;
 			fpgaSetRegister(jtag, 0xD, msg[2]);
 			rv = !bcs[jtag];
-			muxWrite(&rv, 1);
+			pf_write(&rv, 1);
 			goto muxDone;
 		}
 		case 7:  // Read Clock Speed
@@ -371,7 +335,7 @@ tryNewMux:
 				break;
 			fpgaGetRegisterAsBytes(jtag, 0xD, buf);
 			bitendianflip(buf, 32);
-			muxWrite(buf, 4);
+			pf_write(buf, 4);
 			goto muxDone;
 		}
 		case 8:  // Send Job
@@ -381,7 +345,7 @@ tryNewMux:
 				break;
 			for (i=1, j=2; i<12; ++i, j+=4)
 				fpgaSetRegister(jtag, i, msg[j] | (msg[j+1]<<8) | (msg[j+2]<<16) | (msg[j+3]<<24));
-			muxWrite((const uint8_t*)"\1", 1);
+			pf_write("\1", 1);
 			goto muxDone;
 		}
 		case 9:  // Read Nonce
@@ -393,7 +357,7 @@ tryNewMux:
 			if (bcs[jtag])
 				buf[0] = 0;
 			bitendianflip(buf, 32);
-			muxWrite(buf, 4);
+			pf_write(buf, 4);
 			goto muxDone;
 		}
 		case 0xa:  // Read Temperature
@@ -403,7 +367,7 @@ tryNewMux:
 				break;
 			if (msg[1])
 			{
-				muxWrite((const uint8_t*)"\0", 1);
+				pf_write("\0", 1);
 				goto muxDone;
 			}
 			temp = 0;
@@ -413,7 +377,7 @@ tryNewMux:
 				if (tt > temp)
 					temp = tt;
 			}
-			muxWrite(&temp, 1);
+			pf_write(&temp, 1);
 			goto muxDone;
 		}
 		}
