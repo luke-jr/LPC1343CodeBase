@@ -20,7 +20,8 @@
  *          V1.00 Initial Version
  *----------------------------------------------------------------------------*/
 #include "projectconfig.h"
-#include "usb.h"
+#include "core/usb/usb.h"
+#include "core/usb/usbstrings.h"
 #include "usbcfg.h"
 #include "usbreg.h"
 #include "usbhw.h"
@@ -172,6 +173,8 @@ uint32_t RdCmdDat (uint32_t cmd) {
  */
 
 void USB_Init (void) {
+
+  USB_Init_Descriptors();
 
   // Setup USB clock and pins
   USBIOClkConfig();  

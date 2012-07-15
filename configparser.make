@@ -61,12 +61,15 @@ endif
 SRAM_USB = 0
 ifneq (${CFG_USBHID}${CFG_USBCDC},)
 	DEFS += -DCFG_USB_VID='(0x${CFG_USB_VID})' -DCFG_USB_PID='(0x${CFG_USB_PID})'
-	OBJS += usbcore.o usbdesc.o usbhw.o usbuser.o
+	DEFS += -DCFG_USB_MANUFACTURER='${CFG_USB_MANUFACTURER}' -DCFG_USB_PRODUCT='${CFG_USB_PRODUCT}'
+	VPATH += core/usb
+	OBJS += usbstrings.o
 	
 	ifeq (${CFG_USBHID},1)
 		DEFS += -DCFG_USBHID
+		DEFS += -DCFG_USB_ALTSET0='"HID"'
 		VPATH += core/usbhid-rom
-		OBJS += usbconfig.o usbhid.o
+		OBJS += usbhid.o
 		SRAM_USB = 384
 		ifeq (${CFG_USBCDC},1)
 $(error Only one USB class can be defined at a time (CFG_USBCDC or CFG_USBHID))
@@ -74,7 +77,9 @@ $(error Only one USB class can be defined at a time (CFG_USBCDC or CFG_USBHID))
 	endif
 	ifeq (${CFG_USBCDC},1)
 		DEFS += -DCFG_USBCDC -DCFG_USBCDC_BAUDRATE='(${CFG_USBCDC_BAUDRATE})' -DCFG_USBCDC_INITTIMEOUT='(${CFG_USBCDC_INITTIMEOUT})' -DCFG_USBCDC_BUFFERSIZE='(${CFG_USBCDC_BUFFERSIZE})'
+		DEFS += -DCFG_USB_ALTSET0='"VCOM"'
 		VPATH += core/usbcdc
+		OBJS += usbcore.o usbdesc.o usbhw.o usbuser.o
 		OBJS += cdcuser.o cdc_buf.o
 	endif
 endif

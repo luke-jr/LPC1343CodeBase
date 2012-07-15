@@ -35,7 +35,8 @@
 /**************************************************************************/
 #include <string.h>
 
-#include "core/usbhid-rom/usb.h"
+#include "core/usb/usb.h"
+#include "core/usb/usbstrings.h"
 #include "core/usbhid-rom/usbconfig.h"
 #include "core/rom_drivers.h"
 #include "core/gpio/gpio.h"
@@ -151,6 +152,8 @@ void usbHIDSetOutReport (uint8_t dst[], uint32_t length)
 /**************************************************************************/
 void usbHIDInit (void)
 {
+  USB_Init_Descriptors();
+
   // Setup USB clock
   SCB_PDRUNCFG &= ~(SCB_PDSLEEPCFG_USBPAD_PD);        // Power-up USB PHY
   SCB_PDRUNCFG &= ~(SCB_PDSLEEPCFG_USBPLL_PD);        // Power-up USB PLL
@@ -184,7 +187,7 @@ void usbHIDInit (void)
   HidDevInfo.idVendor = USB_VENDOR_ID;
   HidDevInfo.idProduct = USB_PROD_ID;
   HidDevInfo.bcdDevice = USB_DEVICE; 
-  HidDevInfo.StrDescPtr = (uint32_t)&USB_HIDStringDescriptor[0];
+  HidDevInfo.StrDescPtr = (uint32_t)&USB_StringDescriptor[0];
   HidDevInfo.InReportCount = sizeof(usbhid_out_t);
   HidDevInfo.OutReportCount = 1;
   HidDevInfo.SampleInterval = 0x20;

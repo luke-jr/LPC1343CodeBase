@@ -21,7 +21,7 @@
  *---------------------------------------------------------------------------*/
 #include "projectconfig.h"
 
-#include "usb.h"
+#include "core/usb/usb.h"
 #include "cdc.h"
 #include "usbcfg.h"
 #include "usbdesc.h"
@@ -131,73 +131,4 @@ const uint8_t USB_ConfigDescriptor[] = {
   0x00,                              /* bInterval: ignore for Bulk transfer */
 /* Terminator */
   0                                  /* bLength */
-};
-
-
-
-
-/* USB String Descriptor (optional) */
-const uint8_t USB_StringDescriptor[] = {
-/* Index 0x00: LANGID Codes */
-  0x04,                              /* bLength */
-  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
-  WBVAL(0x0409), /* US English */    /* wLANGID */
-/* Index 0x01: Manufacturer */
-  (13*2 + 2),                        /* bLength (13 Char + Type + lenght) */
-  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
-  'N',0,
-  'X',0,
-  'P',0,
-  ' ',0,
-  'S',0,
-  'E',0,
-  'M',0,
-  'I',0,
-  'C',0,
-  'O',0,
-  'N',0,
-  'D',0,
-  ' ',0,
-/* Index 0x02: Product */
-  (17*2 + 2),                        /* bLength ( 17 Char + Type + lenght) */
-  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
-  'N',0,
-  'X',0,
-  'P',0,
-  ' ',0,
-  'L',0,
-  'P',0,
-  'C',0,
-  '1',0,
-  '3',0,
-  'x',0,
-  'x',0,
-  ' ',0,
-  'V',0,
-  'C',0,
-  'O',0,
-  'M',0,
-  ' ',0,
-/* Index 0x03: Serial Number */
-  (12*2 + 2),                        /* bLength (12 Char + Type + lenght) */
-  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
-  'D',0,
-  'E',0,
-  'M',0,
-  'O',0,
-  '0',0,
-  '0',0,
-  '0',0,
-  '0',0,
-  '0',0,
-  '0',0,
-  '0',0,
-  '0',0,
-/* Index 0x04: Interface 0, Alternate Setting 0 */
-  ( 4*2 + 2),                        /* bLength (4 Char + Type + lenght) */
-  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
-  'V',0,
-  'C',0,
-  'O',0,
-  'M',0,
 };

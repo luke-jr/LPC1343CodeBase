@@ -58,7 +58,7 @@
 
 extern const uint8_t USB_DeviceDescriptor[];
 extern const uint8_t USB_ConfigDescriptor[];
-extern const uint8_t USB_HIDStringDescriptor[];
+extern const uint8_t USB_StringDescriptor[];
 
 extern const uint8_t HID_ReportDescriptor[];
 extern const uint16_t HID_ReportDescSize;
