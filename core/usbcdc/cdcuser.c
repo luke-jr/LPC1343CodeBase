@@ -18,7 +18,7 @@
 
 #include "projectconfig.h"
 
-#include "usb.h"
+#include "core/usb/usb.h"
 #include "usbhw.h"
 #include "usbcfg.h"
 #include "usbcore.h"

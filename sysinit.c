@@ -64,7 +64,7 @@
 
 #ifdef CFG_USBCDC
   volatile unsigned int lastTick;
-  #include "core/usbcdc/usb.h"
+  #include "core/usb/usb.h"
   #include "core/usbcdc/usbcore.h"
   #include "core/usbcdc/usbhw.h"
   #include "core/usbcdc/cdcuser.h"
