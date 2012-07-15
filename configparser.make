@@ -307,6 +307,11 @@ $(error CFG_ST7565 and CFG_SSD1306 can not be defined at the same time)
 	endif
 endif
 
+ifeq (${CFG_SUM1},1)
+	VPATH += drivers/cksum
+	OBJS += sum1.o
+endif
+
 ifeq (${CFG_RSA},1)
 	ifneq (${CFG_RSA_BITS},32)
 		ifneq (${CFG_RSA_BITS},64)
