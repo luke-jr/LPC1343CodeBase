@@ -181,6 +181,184 @@ uint8_t fpgamax;
 uint8_t fpgaidx[5] = {0,0,0,0,0xff};
 uint8_t bcs[5];
 
+bool lmmRx(uint8_t c)
+{
+	// Old ModMiner protocol
+	uint8_t jtag;
+	msg[msglen++] = c;
+	jtag = fpgaidx[msg[1]];
+	switch (msg[0]) {
+	case 0:  // Ping Pong
+		pf_write("\0", 1);
+		return true;
+	case 1:  // Version
+		pf_write(PRODID, sizeof(PRODID));
+		return true;
+	case 2:  // Get FPGA Count
+	{
+		uint8_t jtagportCount, jtagport, jtagdevTotal;
+		int8_t jtagdevCount;
+		jtagdevTotal = 0;
+		jtagportCount = jtagDetectPorts();
+		for (jtagport = 0; jtagport < jtagportCount; ++jtagport)
+		{
+			jtagdevCount = jtagDetect(jtagport);
+			if (jtagdevCount > 0)
+				fpgaidx[jtagdevTotal++] = jtagport;
+		}
+		fpgamax = jtagdevTotal;
+		pf_write(&jtagdevTotal, 1);
+		return true;
+	}
+	case 3:  // Read ID Code
+	{
+		uint8_t idcode[4];
+		if (msglen < 2)
+			break;
+		jtagReset(jtag);
+		jtagRead (jtag, JTAG_REG_DR, idcode, 32);
+		jtagReset(jtag);
+		bitendianflip(idcode, 32);
+		pf_write(idcode, 4);
+		return true;
+	}
+	case 4:  // Read USER Code
+	{
+		uint8_t usercode[4];
+		if (msglen < 2)
+			break;
+		jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\x10", 6);
+		jtagRead (jtag, JTAG_REG_DR, usercode, 32);
+		jtagReset(jtag);
+		bitendianflip(usercode, 32);
+		pf_write(usercode, 4);
+		return true;
+	}
+	case 5:  // Program Bitstream
+		switch (step) {
+		case 0:
+		{
+			uint8_t i;
+			if (msglen < 6)
+				break;
+			step = 1;
+			msglen = 2;
+			elen = msg[2] | ((uint32_t)msg[3] << 8) | ((uint32_t)msg[4] << 16) | ((uint32_t)msg[5] << 24);
+			jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\xd0", 6);  // JPROGRAM
+			do {
+				i = 0xff;  // BYPASS while reading status
+				jtagRead(jtag, JTAG_REG_IR, &i, 6);
+			} while (i & 8);
+			jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\xa0", 6);  // CFG_IN
+			pf_write("\1", 1);
+			// NOTE: for whatever reason, the FPGAs don't like immediately filling DR after CFG_IN; therefore, don't try to optimize this
+			break;
+		}
+		case 1:
+		{
+			if (msglen < 34)
+				break;
+			pf_write("\1", 1);
+			jtagSWrite(jtag, JTAG_REG_DR, &msg[2], 256);
+			step = 2;
+			msglen = 2;
+			elen -= 32;
+			break;
+		}
+		case 2:
+		{
+			uint8_t i;
+			uint8_t needlen = (elen < 32) ? elen : 32;
+			if (msglen < needlen+2)
+				break;
+			pf_write("\1", 1);
+			elen -= needlen;
+			jtagSWriteMore(jtag, &msg[2], 8*needlen, !elen);
+			if (elen)
+			{
+				msglen = 2;
+				break;
+			}
+			// Last data block
+			jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\x30", 6);  // JSTART
+			for (i=0; i<16; ++i)
+				jtagRun(jtag);
+			i = 0xff;  // BYPASS
+			jtagRead(jtag, JTAG_REG_IR, &i, 6);
+			i = (i & 4) ? 1 : 0;
+			pf_write(&i, 1);
+			return true;
+		}
+		}
+		break;
+	case 6:  // Set Clock Speed
+	{
+		uint8_t rv;
+		if (msglen < 6)
+			break;
+		bcs[jtag] = msg[2]>200;
+		if (bcs[jtag]) msg[2] = 50;
+		fpgaSetRegister(jtag, 0xD, msg[2]);
+		rv = !bcs[jtag];
+		pf_write(&rv, 1);
+		return true;
+	}
+	case 7:  // Read Clock Speed
+	{
+		uint8_t buf[4];
+		if (msglen < 2)
+			break;
+		fpgaGetRegisterAsBytes(jtag, 0xD, buf);
+		bitendianflip(buf, 32);
+		pf_write(buf, 4);
+		return true;
+	}
+	case 8:  // Send Job
+	{
+		uint8_t i, j;
+		if (msglen < 46)
+			break;
+		for (i=1, j=2; i<12; ++i, j+=4)
+			fpgaSetRegister(jtag, i, msg[j] | (msg[j+1]<<8) | (msg[j+2]<<16) | (msg[j+3]<<24));
+		pf_write("\1", 1);
+		return true;
+	}
+	case 9:  // Read Nonce
+	{
+		uint8_t buf[4];
+		if (msglen < 2)
+			break;
+		fpgaGetRegisterAsBytes(jtag, 0xE, buf);
+		if (bcs[jtag])
+			buf[0] = 0;
+		bitendianflip(buf, 32);
+		pf_write(buf, 4);
+		return true;
+	}
+	case 0xa:  // Read Temperature
+	{
+		uint8_t i, temp, tt;
+		if (msglen < 2)
+			break;
+		if (msg[1])
+		{
+			pf_write("\0", 1);
+			return true;
+		}
+		temp = 0;
+		for (i=0; i<fpgamax; ++i)
+		{
+			tt = 0;  // FIXME TODO
+			if (tt > temp)
+				temp = tt;
+		}
+		pf_write(&temp, 1);
+		return true;
+	}
+	}
+	return false;
+}
+
 void muxRx(uint8_t c)
 {
 	if (muxMode == MUX_NONE)
@@ -207,182 +385,9 @@ tryNewMux:
 			goto muxDone;
 		break;
 	case MUX_COMPAT:
-	{
-		// Old ModMiner protocol
-		uint8_t jtag;
-		msg[msglen++] = c;
-		jtag = fpgaidx[msg[1]];
-		switch (msg[0]) {
-		case 0:  // Ping Pong
-			pf_write("\0", 1);
+		if (lmmRx(c))
 			goto muxDone;
-		case 1:  // Version
-			pf_write(PRODID, sizeof(PRODID));
-			goto muxDone;
-		case 2:  // Get FPGA Count
-		{
-			uint8_t jtagportCount, jtagport, jtagdevTotal;
-			int8_t jtagdevCount;
-			jtagdevTotal = 0;
-			jtagportCount = jtagDetectPorts();
-			for (jtagport = 0; jtagport < jtagportCount; ++jtagport)
-			{
-				jtagdevCount = jtagDetect(jtagport);
-				if (jtagdevCount > 0)
-					fpgaidx[jtagdevTotal++] = jtagport;
-			}
-			fpgamax = jtagdevTotal;
-			pf_write(&jtagdevTotal, 1);
-			goto muxDone;
-		}
-		case 3:  // Read ID Code
-		{
-			uint8_t idcode[4];
-			if (msglen < 2)
-				break;
-			jtagReset(jtag);
-			jtagRead (jtag, JTAG_REG_DR, idcode, 32);
-			jtagReset(jtag);
-			bitendianflip(idcode, 32);
-			pf_write(idcode, 4);
-			goto muxDone;
-		}
-		case 4:  // Read USER Code
-		{
-			uint8_t usercode[4];
-			if (msglen < 2)
-				break;
-			jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\x10", 6);
-			jtagRead (jtag, JTAG_REG_DR, usercode, 32);
-			jtagReset(jtag);
-			bitendianflip(usercode, 32);
-			pf_write(usercode, 4);
-			goto muxDone;
-		}
-		case 5:  // Program Bitstream
-			switch (step) {
-			case 0:
-			{
-				uint8_t i;
-				if (msglen < 6)
-					break;
-				step = 1;
-				msglen = 2;
-				elen = msg[2] | ((uint32_t)msg[3] << 8) | ((uint32_t)msg[4] << 16) | ((uint32_t)msg[5] << 24);
-				jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\xd0", 6);  // JPROGRAM
-				do {
-					i = 0xff;  // BYPASS while reading status
-					jtagRead(jtag, JTAG_REG_IR, &i, 6);
-				} while (i & 8);
-				jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\xa0", 6);  // CFG_IN
-				pf_write("\1", 1);
-				// NOTE: for whatever reason, the FPGAs don't like immediately filling DR after CFG_IN; therefore, don't try to optimize this
-				break;
-			}
-			case 1:
-			{
-				if (msglen < 34)
-					break;
-				pf_write("\1", 1);
-				jtagSWrite(jtag, JTAG_REG_DR, &msg[2], 256);
-				step = 2;
-				msglen = 2;
-				elen -= 32;
-				break;
-			}
-			case 2:
-			{
-				uint8_t i;
-				uint8_t needlen = (elen < 32) ? elen : 32;
-				if (msglen < needlen+2)
-					break;
-				pf_write("\1", 1);
-				elen -= needlen;
-				jtagSWriteMore(jtag, &msg[2], 8*needlen, !elen);
-				if (elen)
-				{
-					msglen = 2;
-					break;
-				}
-				// Last data block
-				jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\x30", 6);  // JSTART
-				for (i=0; i<16; ++i)
-					jtagRun(jtag);
-				i = 0xff;  // BYPASS
-				jtagRead(jtag, JTAG_REG_IR, &i, 6);
-				i = (i & 4) ? 1 : 0;
-				pf_write(&i, 1);
-				goto muxDone;
-			}
-			}
-			break;
-		case 6:  // Set Clock Speed
-		{
-			uint8_t rv;
-			if (msglen < 6)
-				break;
-			bcs[jtag] = msg[2]>200;
-			if (bcs[jtag]) msg[2] = 50;
-			fpgaSetRegister(jtag, 0xD, msg[2]);
-			rv = !bcs[jtag];
-			pf_write(&rv, 1);
-			goto muxDone;
-		}
-		case 7:  // Read Clock Speed
-		{
-			uint8_t buf[4];
-			if (msglen < 2)
-				break;
-			fpgaGetRegisterAsBytes(jtag, 0xD, buf);
-			bitendianflip(buf, 32);
-			pf_write(buf, 4);
-			goto muxDone;
-		}
-		case 8:  // Send Job
-		{
-			uint8_t i, j;
-			if (msglen < 46)
-				break;
-			for (i=1, j=2; i<12; ++i, j+=4)
-				fpgaSetRegister(jtag, i, msg[j] | (msg[j+1]<<8) | (msg[j+2]<<16) | (msg[j+3]<<24));
-			pf_write("\1", 1);
-			goto muxDone;
-		}
-		case 9:  // Read Nonce
-		{
-			uint8_t buf[4];
-			if (msglen < 2)
-				break;
-			fpgaGetRegisterAsBytes(jtag, 0xE, buf);
-			if (bcs[jtag])
-				buf[0] = 0;
-			bitendianflip(buf, 32);
-			pf_write(buf, 4);
-			goto muxDone;
-		}
-		case 0xa:  // Read Temperature
-		{
-			uint8_t i, temp, tt;
-			if (msglen < 2)
-				break;
-			if (msg[1])
-			{
-				pf_write("\0", 1);
-				goto muxDone;
-			}
-			temp = 0;
-			for (i=0; i<fpgamax; ++i)
-			{
-				tt = 0;  // FIXME TODO
-				if (tt > temp)
-					temp = tt;
-			}
-			pf_write(&temp, 1);
-			goto muxDone;
-		}
-		}
 		break;
-	}
 	case MUX_MHBP:
 		// TODO: MHBP
 		break;
