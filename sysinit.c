@@ -297,37 +297,37 @@ int pf_getchar()
                 Byte value to send
 */
 /**************************************************************************/
+static inline
 void __putchar(const char c) 
 {
-  #ifdef CFG_PRINTF_UART
+  #ifdef CFG_PRINTF_USBCDC
+    cdcBufferWrite(c);
+  #elif defined(CFG_PRINTF_UART)
     // Send output to UART
     uartSendByte(c);
   #endif
 }
 
-/**************************************************************************/
-/*! 
-    @brief Sends a string to a pre-determined end point (UART, etc.).
-
-    @param[in]  str
-                Text to send
-
-    @note This function is only called when using the GCC-compiler
-          in Codelite or running the Makefile manually.  This function
-          will not be called when using the C library in Crossworks for
-          ARM.
-*/
-/**************************************************************************/
-int puts(const char * str)
+int pf_write(const void*buf, ssize_t len)
 {
+  const char*str = buf;
   // There must be at least 1ms between USB frames (of up to 64 bytes)
   // This buffers all data and writes it out from the buffer one frame
   // and one millisecond at a time
   #ifdef CFG_PRINTF_USBCDC
     if (USB_Configuration) 
     {
-      while(*str)
-        cdcBufferWrite(*str++);
+  #endif
+      if (len == -1)
+        while(*str)
+          __putchar(*str++);
+      else
+      {
+        ssize_t p;
+        for (p=0; p<len; ++p)
+          __putchar(*str++);
+      }
+  #ifdef CFG_PRINTF_USBCDC
       // Check if we can flush the buffer now or if we need to wait
       unsigned int currentTick = systickGetTicks();
       if (currentTick != lastTick)
@@ -344,12 +344,27 @@ int puts(const char * str)
         lastTick = currentTick;
       }
     }
-  #else
-    // Handle output character by character in __putchar
-    while(*str) __putchar(*str++);
   #endif
 
   return 0;
+}
+
+/**************************************************************************/
+/*!
+    @brief Sends a string to a pre-determined end point (UART, etc.).
+
+    @param[in]  str
+                Text to send
+
+    @note This function is only called when using the GCC-compiler
+          in Codelite or running the Makefile manually.  This function
+          will not be called when using the C library in Crossworks for
+          ARM.
+*/
+/**************************************************************************/
+int puts(const char * str)
+{
+  return pf_write((const uint8_t*)str, -1);
 }
 
 // Override printf here if we're using Crossworks for ARM

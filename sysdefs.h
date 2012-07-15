@@ -85,6 +85,7 @@ typedef unsigned char byte_t;
 #endif
 
 extern int pf_getchar();
+extern int pf_write(const void*, ssize_t size);
 
 #endif
 
