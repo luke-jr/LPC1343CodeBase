@@ -1,64 +1,45 @@
 /**************************************************************************/
 /*! 
-    @file     main.c
-    @author   K. Townsend (microBuilder.eu)
+    @file     legacy.c
+    @author   Luke-Jr
+    @date     4 July, 2012
+    @version  0.1
 
-    @section LICENSE
-
-    Software License Agreement (BSD License)
-
-    Copyright (c) 2011, microBuilder SARL
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are met:
-    1. Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
-    2. Redistributions in binary form must reproduce the above copyright
-    notice, this list of conditions and the following disclaimer in the
-    documentation and/or other materials provided with the distribution.
-    3. Neither the name of the copyright holders nor the
-    names of its contributors may be used to endorse or promote products
-    derived from this software without specific prior written permission.
-
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
-    EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-    WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-    DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-    DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-    (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-    ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+    Legacy ModMiner protocol implementation
 */
 /**************************************************************************/
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "projectconfig.h"
-#include "sysinit.h"
-
-#include "core/gpio/gpio.h"
-#include "core/systick/systick.h"
-
-#ifdef CFG_INTERFACE
-  #include "core/cmd/cmd.h"
-#endif
-
-#ifdef CFG_PRINTF_UART
-#include "core/uart/uart.h"
-#endif
-
-#ifdef CFG_PRINTF_USBCDC
-  #include "core/usbcdc/cdcuser.h"
-  #include "core/usbcdc/cdc_buf.h"
-  #include "core/usbcdc/usb.h"
-  #include "core/usbcdc/usbhw.h"
-#endif
 
 #include "drivers/jtag/jtag.h"
+
+#include "mux.h"
+
+#define PRODID "ModMiner Quad v0.4-ljr-alpha"
+
+#define msg    muxbuf
+#define msglen muxbuflen
+#define step   muxstep
+
+static uint32_t elen;
+
+uint8_t fpgamax;
+uint8_t fpgaidx[5] = {0,0,0,0,0xff};
+uint8_t bcs[5];
+
+uint8_t fpgaMap()
+{
+	uint8_t jtagportCount, jtagport, jtagdevTotal;
+	int8_t jtagdevCount;
+	jtagdevTotal = 0;
+	jtagportCount = jtagDetectPorts();
+	for (jtagport = 0; jtagport < jtagportCount; ++jtagport)
+	{
+		jtagdevCount = jtagDetect(jtagport);
+		if (jtagdevCount > 0)
+			fpgaidx[jtagdevTotal++] = jtagport;
+	}
+	fpgamax = jtagdevTotal;
+	return jtagdevTotal;
+}
 
 void int2bits(uint32_t n, uint8_t*b, uint8_t bits)
 {
@@ -152,49 +133,6 @@ void fpgaSetRegister(uint8_t jtag, uint8_t addr, uint32_t nv)
 	checksum(buf, 37);
 	jtagWrite(jtag, JTAG_REG_DR, buf, 38);
 	jtagRun(jtag);
-}
-
-void muxRx(uint8_t);
-
-void muxPoll()
-{
-  int c;
-  while (EOF != (c = pf_getchar()))
-    muxRx(c);
-}
-
-static enum {
-  MUX_NONE,
-  MUX_CMD,
-  MUX_COMPAT,
-  MUX_MHBP,
-} muxMode;
-static uint8_t step;
-static uint32_t elen;
-
-static uint8_t msg[256];
-static uint8_t msglen;
-
-#define PRODID "ModMiner Quad v0.4-ljr-alpha"
-
-uint8_t fpgamax;
-uint8_t fpgaidx[5] = {0,0,0,0,0xff};
-uint8_t bcs[5];
-
-uint8_t fpgaMap()
-{
-	uint8_t jtagportCount, jtagport, jtagdevTotal;
-	int8_t jtagdevCount;
-	jtagdevTotal = 0;
-	jtagportCount = jtagDetectPorts();
-	for (jtagport = 0; jtagport < jtagportCount; ++jtagport)
-	{
-		jtagdevCount = jtagDetect(jtagport);
-		if (jtagdevCount > 0)
-			fpgaidx[jtagdevTotal++] = jtagport;
-	}
-	fpgamax = jtagdevTotal;
-	return jtagdevTotal;
 }
 
 bool lmmRx(uint8_t c)
@@ -361,73 +299,4 @@ bool lmmRx(uint8_t c)
 	}
 	}
 	return false;
-}
-
-void muxRx(uint8_t c)
-{
-	if (muxMode == MUX_NONE)
-	{
-tryNewMux:
-		msglen = 0;
-		step = 0;
-		if (c == 0xfe)
-			muxMode = MUX_MHBP;
-		else
-		if (c < 0xb)
-			muxMode = MUX_COMPAT;
-		else
-		if (c < 0x80)
-			muxMode = MUX_CMD;
-	}
-	switch (muxMode) {
-	case MUX_NONE:
-		break;
-	case MUX_CMD:
-		if (c < 8 || c > 0x7f)
-			goto tryNewMux;
-		if (cmdRx(c))
-			goto muxDone;
-		break;
-	case MUX_COMPAT:
-		if (lmmRx(c))
-			goto muxDone;
-		break;
-	case MUX_MHBP:
-		// TODO: MHBP
-		break;
-	}
-	return;
-
-muxDone:
-	muxMode = MUX_NONE;
-}
-
-/**************************************************************************/
-/*! 
-    Main program entry point.  After reset, normal code execution will
-    begin here.
-*/
-/**************************************************************************/
-int main(void)
-{
-  // Configure cpu and mandatory peripherals
-  systemInit();
-
-  uint32_t currentSecond, lastSecond;
-  currentSecond = lastSecond = 0;
-  
-  while (1)
-  {
-    // Toggle LED once per second
-    currentSecond = systickGetSecondsActive();
-    if (currentSecond != lastSecond)
-    {
-      lastSecond = currentSecond;
-      gpioSetValue(CFG_LED_PORT, CFG_LED_PIN, lastSecond % 2);
-    }
-
-    muxPoll();
-  }
-
-  return 0;
 }
