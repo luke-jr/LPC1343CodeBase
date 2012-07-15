@@ -181,10 +181,26 @@ uint8_t fpgamax;
 uint8_t fpgaidx[5] = {0,0,0,0,0xff};
 uint8_t bcs[5];
 
+uint8_t fpgaMap()
+{
+	uint8_t jtagportCount, jtagport, jtagdevTotal;
+	int8_t jtagdevCount;
+	jtagdevTotal = 0;
+	jtagportCount = jtagDetectPorts();
+	for (jtagport = 0; jtagport < jtagportCount; ++jtagport)
+	{
+		jtagdevCount = jtagDetect(jtagport);
+		if (jtagdevCount > 0)
+			fpgaidx[jtagdevTotal++] = jtagport;
+	}
+	fpgamax = jtagdevTotal;
+	return jtagdevTotal;
+}
+
 bool lmmRx(uint8_t c)
 {
 	// Old ModMiner protocol
-	uint8_t jtag;
+	uint8_t jtag, x;
 	msg[msglen++] = c;
 	jtag = fpgaidx[msg[1]];
 	switch (msg[0]) {
@@ -195,21 +211,9 @@ bool lmmRx(uint8_t c)
 		pf_write(PRODID, sizeof(PRODID));
 		return true;
 	case 2:  // Get FPGA Count
-	{
-		uint8_t jtagportCount, jtagport, jtagdevTotal;
-		int8_t jtagdevCount;
-		jtagdevTotal = 0;
-		jtagportCount = jtagDetectPorts();
-		for (jtagport = 0; jtagport < jtagportCount; ++jtagport)
-		{
-			jtagdevCount = jtagDetect(jtagport);
-			if (jtagdevCount > 0)
-				fpgaidx[jtagdevTotal++] = jtagport;
-		}
-		fpgamax = jtagdevTotal;
-		pf_write(&jtagdevTotal, 1);
+		x = fpgaMap();
+		pf_write(&x, 1);
 		return true;
-	}
 	case 3:  // Read ID Code
 	{
 		uint8_t idcode[4];
