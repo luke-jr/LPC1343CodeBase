@@ -259,8 +259,10 @@ void cmdInit()
   // init the msg ptr
   msg_ptr = msg;
 
+  #ifndef CFG_INTERFACE_SILENTINIT
   // Show the menu
   cmdMenu();
+  #endif
 
   // Set the IRQ pin low by default
   #if CFG_INTERFACE_ENABLEIRQ  != 0
