@@ -7,3 +7,7 @@ include boards/LPC1343_MODMINER
 CFG_FIRMWARE_VERSION_MAJOR    = 0
 CFG_FIRMWARE_VERSION_MINOR    = 4
 CFG_FIRMWARE_VERSION_REVISION = 0
+
+CFG_SUM1 = 1
+VPATH = project/ajp
+OBJS += ajp.o ajp_ctrl.o ajp_jtag.o

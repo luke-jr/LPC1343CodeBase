@@ -7,6 +7,8 @@
   #include "core/cmd/cmd.h"
 #endif
 
+#include "project/ajp/ajp.h"
+
 void muxRx(uint8_t);
 
 void muxPoll()
@@ -20,7 +22,7 @@ static enum {
   MUX_NONE,
   MUX_CMD,
   MUX_COMPAT,
-  MUX_MHBP,
+  MUX_AJP,
 } muxMode;
 
 uint8_t muxbuf[256];
@@ -36,8 +38,8 @@ void muxRx(uint8_t c)
 tryNewMux:
 		muxbuflen = 0;
 		muxstep = 0;
-		if (c == 0xfe)
-			muxMode = MUX_MHBP;
+		if (c == 0xfd)
+			muxMode = MUX_AJP;
 		else
 		if (c < 0xb)
 			muxMode = MUX_COMPAT;
@@ -62,8 +64,11 @@ tryNewMux:
 		if (lmmRx(c))
 			goto muxDone;
 		break;
-	case MUX_MHBP:
-		// TODO: MHBP
+	case MUX_AJP:
+		switch (ajpRx(c)) {
+		case -1:
+			goto tryNewMux;
+		}
 		break;
 	}
 	return;
