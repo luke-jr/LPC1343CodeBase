@@ -34,6 +34,7 @@ void muxRx(uint8_t c)
 	if (muxMode == MUX_NONE)
 	{
 tryNewMux:
+		muxMode = MUX_NONE;
 		muxbuflen = 0;
 		muxstep = 0;
 		if (c == 0xfe)
