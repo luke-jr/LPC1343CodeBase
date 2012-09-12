@@ -94,6 +94,7 @@ void checksum(uint8_t*b, uint8_t bits)
 void fpgaGetRegisterAsBytes(uint8_t jtag, uint8_t addr, uint8_t*buf)
 {
 	jtagWrite(jtag, JTAG_REG_IR, (const uint8_t*)"\x40", 6);
+	buf[0] = 0;
 	int2bits(addr, &buf[0], 4);
 	checksum(buf, 5);
 	jtagWrite(jtag, JTAG_REG_DR, buf, 6);
