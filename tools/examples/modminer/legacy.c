@@ -86,7 +86,7 @@ void checksum(uint8_t*b, uint8_t bits)
 	uint8_t i;
 	uint8_t checksum = 1;
 	for(i=0; i<bits; ++i)
-	    checksum ^= (b[i/8] & (0x80 >> (i % 8))) ? 1 : 0;
+		checksum ^= (b[i/8] & (0x80 >> (i % 8))) ? 1 : 0;
 	if (checksum)
 		b[i/8] |= 0x80 >> (i % 8);
 }
