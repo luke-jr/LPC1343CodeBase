@@ -258,12 +258,20 @@ bool lmmRx(uint8_t c)
 	}
 	case 8:  // Send Job
 	{
-		uint8_t i, j;
+		uint8_t i, j, k, match = 0;
 		if (msglen < 46)
 			break;
-		for (i=1, j=2; i<12; ++i, j+=4)
-			fpgaSetRegister(jtag, i, msg[j] | (msg[j+1]<<8) | (msg[j+2]<<16) | (msg[j+3]<<24));
-		pf_write("\1", 1);
+		for (k=0; k<3 && !match; k++)
+		{
+			for (i=1, j=2; i<12; ++i, j+=4)
+				fpgaSetRegister(jtag, i, msg[j] | (msg[j+1]<<8) | (msg[j+2]<<16) | (msg[j+3]<<24));
+			match = 1;
+			for (i=1, j=2; i<12; ++i, j+=4)
+				if (fpgaGetRegister(jtag, i) != msg[j] | (msg[j+1]<<8) | (msg[j+2]<<16) | (msg[j+3]<<24))
+					match = 0;
+		}
+		if (match) pf_write("\1", 1);
+		else pf_write("\2", 1);
 		return true;
 	}
 	case 9:  // Read Nonce
